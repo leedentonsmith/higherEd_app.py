@@ -1,0 +1,291 @@
+from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QTextEdit, QPushButton, QTabWidget, QFileDialog, QSlider
+import sys
+import os
+import openai
+
+os.environ["OPENAI_API_KEY"] = "your-api-key"  # Replace with your actual API key
+openai.api_key = os.environ["OPENAI_API_KEY"]
+
+class App(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.initUI()
+
+    def initUI(self):
+        self.setWindowTitle('Text Processing')
+        self.setGeometry(300, 300, 500, 500)
+
+        layout = QVBoxLayout()
+        self.setLayout(layout)
+
+        self.tabs = QTabWidget()
+        layout.addWidget(self.tabs)
+
+        self.tab_summarize = QWidget()
+        self.tab_sentiment = QWidget()
+        self.tab_generate = QWidget()
+
+        self.tabs.addTab(self.tab_summarize, "Summarize")
+        self.tabs.addTab(self.tab_sentiment, "Sentiment Analysis")
+        self.tabs.addTab(self.tab_generate, "Text Generation")
+
+        self.create_summarize_tab()
+        self.create_sentiment_tab()
+        self.create_generate_tab()
+        self.apply_stylesheet()
+
+    def apply_stylesheet(self):
+        stylesheet = """
+        /* Set background color and font for the app */
+        QWidget {
+            background-color: #f0f0f0;
+            font-family: "Segoe UI";
+            font-size: 11pt;
+        }
+
+        /* Set background color and font for buttons */
+        QPushButton {
+            background-color: #007BFF;
+            color: #ffffff;
+            border: none;
+            padding: 5px;
+            border-radius: 3px;
+        }
+
+        QPushButton:hover {
+            background-color: #0056b3;
+        }
+
+        QPushButton:pressed {
+            background-color: #004085;
+        }
+
+        /* Set background color and font for QTextEdit */
+        QTextEdit {
+            background-color: #ffffff;
+            color: #000000;
+            border: 1px solid #c0c0c0;
+            border-radius: 3px;
+        }
+
+        /* Set background color and font for QSlider */
+        QSlider::groove:horizontal {
+            border: 1px solid #999999;
+            height: 6px;
+            background: #f0f0f0;
+            margin: 2px 0;
+        }
+
+        QSlider::handle:horizontal {
+            background: #007BFF;
+            border: none;
+            width: 14px;
+            height: 14px;
+            margin: -4px 0;
+            border-radius: 7px;
+        }
+
+        /* Set background color and font for QTabWidget */
+        QTabWidget::pane {
+            border: 1px solid #999999;
+            background-color: #f0f0f0;
+        }
+
+        QTabBar::tab {
+            background-color: #c0c0c0;
+            padding: 5px;
+            border: none;
+            border-top-left-radius: 3px;
+            border-top-right-radius: 3px;
+        }
+
+        QTabBar::tab:selected {
+            background-color: #f0f0f0;
+        }
+        """
+
+        self.setStyleSheet(stylesheet)
+
+    def create_summarize_tab(self):
+        layout = QVBoxLayout()
+        self.tab_summarize.setLayout(layout)
+
+        label = QLabel("Enter the text you want to summarize:")
+        layout.addWidget(label)
+
+        self.text_to_summarize = QTextEdit()
+        layout.addWidget(self.text_to_summarize)
+
+        button_layout = QHBoxLayout()
+
+        self.summarize_button = QPushButton("Summarize")
+        button_layout.addWidget(self.summarize_button)
+        self.summarize_button.clicked.connect(self.summarize_text)
+
+        self.clear_input_summarize = QPushButton("Clear Input")
+        button_layout.addWidget(self.clear_input_summarize)
+        self.clear_input_summarize.clicked.connect(self.text_to_summarize.clear)
+
+        layout.addLayout(button_layout)
+
+        self.summarized_text = QTextEdit()
+        self.summarized_text.setReadOnly(True)
+        layout.addWidget(self.summarized_text)
+
+        button_layout2 = QHBoxLayout()
+
+        self.save_summarized = QPushButton("Save Output")
+        button_layout2.addWidget(self.save_summarized)
+        self.save_summarized.clicked.connect(self.save_summarized_text)
+
+        self.clear_output_summarize = QPushButton("Clear Output")
+        button_layout2.addWidget(self.clear_output_summarize)
+        self.clear_output_summarize.clicked.connect(self.summarized_text.clear)
+
+        layout.addLayout(button_layout2)
+
+    def save_summarized_text(self):
+        options = QFileDialog.Options()
+        options |= QFileDialog.ReadOnly
+        file_name, _ = QFileDialog.getSaveFileName(self, "Save Output", "", "Text Files (*.txt);;All Files (*)", options=options)
+        if file_name:
+            with open(file_name, 'w') as f:
+                f.write(self.summarized_text.toPlainText())
+
+    def summarize_text(self):
+        input_text = self.text_to_summarize.toPlainText()
+        summarized = self.summarize(input_text)
+        self.summarized_text.setPlainText(summarized)
+
+    def create_sentiment_tab(self):
+        layout = QVBoxLayout()
+        self.tab_sentiment.setLayout(layout)
+
+        label = QLabel("Enter the text you want to analyze:")
+        layout.addWidget(label)
+
+        self.text_to_analyze = QTextEdit()
+        layout.addWidget(self.text_to_analyze)
+
+        button_layout = QHBoxLayout()
+
+        self.sentiment_button = QPushButton("Analyze Sentiment")
+        button_layout.addWidget(self.sentiment_button)
+        self.sentiment_button.clicked.connect(self.analyze_sentiment)
+
+        self.clear_input_sentiment = QPushButton("Clear Input")
+        button_layout.addWidget(self.clear_input_sentiment)
+        self.clear_input_sentiment.clicked.connect(self.text_to_analyze.clear)
+
+        layout.addLayout(button_layout)
+
+        self.sentiment_text = QTextEdit()
+        self.sentiment_text.setReadOnly(True)
+        layout.addWidget(self.sentiment_text)
+
+        button_layout2 = QHBoxLayout()
+
+        self.save_sentiment = QPushButton("Save Output")
+        button_layout2.addWidget(self.save_sentiment)
+        self.save_sentiment.clicked.connect(self.save_sentiment_text)
+
+        self.clear_output_sentiment = QPushButton("Clear Output")
+        button_layout2.addWidget(self.clear_output_sentiment)
+        self.clear_output_sentiment.clicked.connect(self.sentiment_text.clear)
+
+        layout.addLayout(button_layout2)
+
+    def save_sentiment_text(self):
+        options = QFileDialog.Options()
+        options |= QFileDialog.ReadOnly
+        file_name, _ = QFileDialog.getSaveFileName(self, "Save Output", "", "Text Files (*.txt);;All Files (*)", options=options)
+        if file_name:
+            with open(file_name, 'w') as f:
+                f.write(self.sentiment_text.toPlainText())
+
+    def create_generate_tab(self):
+        layout = QVBoxLayout()
+        self.tab_generate.setLayout(layout)
+
+        label = QLabel("Enter the prompt:")
+        layout.addWidget(label)
+
+        self.text_prompt = QTextEdit()
+        layout.addWidget(self.text_prompt)
+
+        button_layout = QHBoxLayout()
+
+        self.generate_button = QPushButton("Generate Text")
+        button_layout.addWidget(self.generate_button)
+        self.generate_button.clicked.connect(self.generate_text)
+
+        self.clear_input_generate = QPushButton("Clear Input")
+        button_layout.addWidget(self.clear_input_generate)
+        self.clear_input_generate.clicked.connect(self.text_prompt.clear)
+
+        layout.addLayout(button_layout)
+
+        self.generated_text = QTextEdit()
+        self.generated_text.setReadOnly(True)
+        layout.addWidget(self.generated_text)
+
+        button_layout2 = QHBoxLayout()
+
+        self.save_generated = QPushButton("Save Output")
+        button_layout2.addWidget(self.save_generated)
+        self.save_generated.clicked.connect(self.save_generated_text)
+
+        self.clear_output_generate = QPushButton("Clear Output")
+        button_layout2.addWidget(self.clear_output_generate)
+        self.clear_output_generate.clicked.connect(self.generated_text.clear)
+
+        layout.addLayout(button_layout2)
+
+    def save_generated_text(self):
+        options = QFileDialog.Options()
+        options |= QFileDialog.ReadOnly
+        file_name, _ = QFileDialog.getSaveFileName(self, "Save Output", "", "Text Files (*.txt);;All Files (*)", options=options)
+        if file_name:
+            with open(file_name, 'w') as f:
+                f.write(self.generated_text.toPlainText())
+
+    def analyze_sentiment(self):
+        input_text = self.text_to_analyze.toPlainText()
+        sentiment = self.analyze_sentiment_text(input_text)
+        self.sentiment_text.setPlainText(sentiment)
+
+    def generate_text(self):
+        prompt = self.text_prompt.toPlainText()
+        generated = self.generate(prompt)
+        self.generated_text.setPlainText(generated)
+
+    def gpt3_request(self, prompt, max_tokens=100):
+        response = openai.Completion.create(
+            engine="text-davinci-002",
+            prompt=prompt,
+            max_tokens=max_tokens,
+            n=1,
+            stop=None,
+            temperature=0.5,
+        )
+        return response.choices[0].text.strip()
+
+    def summarize(self, text):
+        prompt = f"summarize: {text}"
+        return self.gpt3_request(prompt)
+
+    def analyze_sentiment_text(self, text):
+        prompt = f"sentiment: {text}"
+        return self.gpt3_request(prompt)
+
+    def generate(self, prompt):
+        return self.gpt3_request(prompt)
+
+def main():
+    app = QApplication(sys.argv)
+    ex = App()
+    ex.show()
+    sys.exit(app.exec_())
+
+if __name__ == '__main__':
+    main()
