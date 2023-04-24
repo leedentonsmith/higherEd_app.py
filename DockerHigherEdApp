@@ -1,0 +1,8 @@
+# Log in to your Docker Hub account
+docker login
+
+# Tag the image with your Docker Hub username and desired repository name
+docker tag highered leedentonsmith/highered
+
+# Push the image to Docker Hub
+docker push leedentonsmith/highered:1.0
